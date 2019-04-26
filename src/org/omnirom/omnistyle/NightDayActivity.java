@@ -57,6 +57,8 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
+import org.omnirom.omnistyle.NightDayUtils;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -83,6 +85,7 @@ public class NightDayActivity extends Activity {
     private List<ThemeInfo> mNotificationOverlays;
     public List<String> mAppOverlays;
     private OverlayUtils mOverlayUtils;
+    private NightDayUtils mNightDayUtils;
     private List<String> mOverlayComposeDay = new ArrayList<>();
     private List<String> mOverlayComposeNight = new ArrayList<>();
     private String mCurrentAccent;
@@ -268,7 +271,7 @@ public class NightDayActivity extends Activity {
                     PrefsWriter.remove("PrimaryNight");
                     PrefsWriter.remove("NotificationNight");
                     PrefsWriter.commit();
-                    cancelPending();
+                    mNightDayUtils.cancelPending();
                 }
             }
         });
@@ -587,12 +590,11 @@ public class NightDayActivity extends Activity {
                     PrefsWriter.putInt("clockNightMin", clockNightMin);
                     PrefsWriter.apply();
                     
-                    cancelPending();
+                    mNightDayUtils.cancelPending(am);
     
                     long time = System.currentTimeMillis();
                     long timeexpnight = getTime(clockNightHour, clockNightMin);
                     long timeexpday = getTime(clockDayHour, clockDayMin);
-                    Log.d("ThemeAlarmConst", ":"+time+","+timeexpnight+","+timeexpday);
                     if(time >= timeexpday && time < timeexpnight) {
                         List<String> allOverlays = new ArrayList<String>();
                         allOverlays.addAll(mOverlayComposeDay);
@@ -613,8 +615,8 @@ public class NightDayActivity extends Activity {
                         mOverlayUtils.enableThemeList(allOverlays);
                     }
     
-                    setSunriseThemeAlarm(clockDayHour, clockDayMin);
-                    setSunsetThemeAlarm(clockNightHour, clockNightMin);
+                    mNightDayUtils.setSunriseThemeAlarm(clockDayHour, clockDayMin, this, am);
+                    mNightDayUtils.setSunsetThemeAlarm(clockNightHour, clockNightMin, this, am);
                     Toast.makeText(getApplicationContext(), "Themes set successfully!", Toast.LENGTH_LONG).show();
                 } else {
                     Toast.makeText(getApplicationContext(), "Time for Theme1 should be less than Time for Theme2", Toast.LENGTH_LONG).show();
@@ -698,63 +700,7 @@ public class NightDayActivity extends Activity {
         }
     }
 
-    public void setSunriseThemeAlarm(int hour, int min) {
 
-        long time = getTime(hour,min);
-        //Avoid setting alarm in past
-        if (time < System.currentTimeMillis()) {
-            Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.DAY_OF_MONTH, 1);
-            calendar.set(Calendar.HOUR_OF_DAY, hour);
-            calendar.set(Calendar.MINUTE, min);
-            time = calendar.getTimeInMillis();
-        }
-
-        ComponentName receiver = new ComponentName(this, SunriseThemeAlarm.class);
-        PackageManager pm = this.getPackageManager();
-        pm.setComponentEnabledSetting(receiver,
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP);
-
-        Intent i = new Intent(this, SunriseThemeAlarm.class);
-
-        PendingIntent pi = PendingIntent.getBroadcast(this, 1, i, PendingIntent.FLAG_CANCEL_CURRENT);
-
-        am.setRepeating(AlarmManager.RTC_WAKEUP, time, AlarmManager.INTERVAL_DAY, pi);
-    }
-
-    public void setSunsetThemeAlarm(int hour, int min) {
-
-        long time = getTime(hour,min);
-
-        ComponentName receiver = new ComponentName(this, SunsetThemeAlarm.class);
-        PackageManager pm = this.getPackageManager();
-        pm.setComponentEnabledSetting(receiver,
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP);
-
-        Intent j = new Intent(this, SunsetThemeAlarm.class);
-
-        PendingIntent pi = PendingIntent.getBroadcast(this, 2, j, PendingIntent.FLAG_CANCEL_CURRENT);
-
-        am.setRepeating(AlarmManager.RTC_WAKEUP, time, AlarmManager.INTERVAL_DAY, pi);
-    }
-    
-     public void cancelPending() {
-        Intent cancelSunriseIntent = new Intent(getApplicationContext(), SunriseThemeAlarm.class);
-        Intent cancelSunsetIntent = new Intent(getApplicationContext(), SunsetThemeAlarm.class);
-        PendingIntent cancelSunrisePendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 1, cancelSunriseIntent,0);
-        PendingIntent cancelSunsetPendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 2, cancelSunsetIntent,0);
-        am.cancel(cancelSunrisePendingIntent);
-        am.cancel(cancelSunsetPendingIntent);
-     }
-     
-    public long getTime(int hour, int min) {
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, hour);
-        calendar.set(Calendar.MINUTE, min);
-        return calendar.getTimeInMillis();
-    }
     
     public void showAlertDialog () {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
